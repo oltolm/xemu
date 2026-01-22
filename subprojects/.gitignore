@@ -35,6 +35,7 @@ tomlplusplus
 xxHash-*
 imgui
 implot
+implot*
 genconfig
 curl-*
 json-*
