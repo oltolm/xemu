@@ -70,7 +70,7 @@ void MonitorWindow::Draw()
             }
         }
         float input_height = fmax(ImGui::GetWindowHeight(),
-                                  g_font_mgr.m_fixed_width_font->FontSize * num_newlines);
+                                  ImGui::GetFontSize() * num_newlines);
 
         ImGui::PushID("#MonitorOutput");
         ImGui::InputTextMultiline("",

@@ -17,6 +17,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 #include "widgets.hh"
+#include "imgui.h"
 #include "misc.hh"
 #include "font-manager.hh"
 #include "viewport-manager.hh"
@@ -240,10 +241,10 @@ void Slider(const char *str_id, float *v, const char *description)
 
     // XXX: Internal API
     ImVec2 wpos = ImGui::GetCursorPos();
+    ImGui::SetNextItemAllowOverlap();
     ImRect bb(p, ImVec2(p.x + size.x, p.y + size.y));
     ImGui::ItemSize(size, 0.0f);
     ImGui::ItemAdd(bb, 0);
-    ImGui::SetItemAllowOverlap();
     ImGui::SameLine(0, 0);
 
     ImVec2 slider_size(size.x * 0.4, title_height * 0.9);
@@ -311,9 +312,9 @@ void FilePicker(const char *str_id, const char *current_path,
               GetWidgetTitleDescriptionHeight(str_id, desc));
     ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0, 0));
     ImGui::PushID(str_id);
+    ImGui::SetNextItemAllowOverlap();
     bool status =
         ImGui::ButtonEx("###file_button", bb, ImGuiButtonFlags_AllowOverlap);
-    ImGui::SetItemAllowOverlap();
     if (status) {
         if (dir) {
             ShowOpenFolderDialog(current_path, on_select);
@@ -342,7 +343,6 @@ void FilePicker(const char *str_id, const char *current_path,
     ts_clear_icon.x += 2 * style.FramePadding.x;
     ImVec2 clear_icon_pos = ImVec2(cursor.x + bb.x - ts_icon.x - ts_clear_icon.x, cursor.y);
 
-    auto prev_pos = ImGui::GetCursorPos();
     ImGui::SetCursorPos(clear_icon_pos);
 
     char *clear_button_id = g_strdup_printf("%s_clear", str_id);
@@ -355,8 +355,6 @@ void FilePicker(const char *str_id, const char *current_path,
 
     ImGui::PopID();
     g_free(clear_button_id);
-
-    ImGui::SetCursorPos(prev_pos);
 
     ImGui::PopFont();
 
@@ -387,10 +385,10 @@ void PrepareComboTitleDescription(const char *label, const char *description,
     WidgetTitleDescription(label, description, pos);
 
     ImVec2 wpos = ImGui::GetCursorPos();
+    ImGui::SetNextItemAllowOverlap();
     ImRect bb(pos, ImVec2(pos.x + size.x, pos.y + size.y));
     ImGui::ItemSize(size, 0.0f);
     ImGui::ItemAdd(bb, 0);
-    ImGui::SetItemAllowOverlap();
     ImGui::SameLine(0, 0);
     float combo_width = width * combo_size_ratio;
     ImGui::SetCursorPos(ImVec2(wpos.x + width - combo_width, wpos.y));
@@ -526,7 +524,6 @@ void HelpMarker(const char* desc)
 
 void Logo()
 {
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY()-25*g_viewport_mgr.m_scale);
     ImGui::SetCursorPosX((ImGui::GetWindowWidth()-256*g_viewport_mgr.m_scale)/2);
 
     static uint32_t time_start = 0;
