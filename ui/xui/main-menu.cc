@@ -1878,8 +1878,7 @@ bool MainMenuScene::Draw()
 
         ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(26, 26, 26, 255));
 
-        ImGui::BeginChild("###MainWindowNav", ImVec2(nav_width, -1), true,
-                          ImGuiWindowFlags_NavFlattened);
+        ImGui::BeginChild("###MainWindowNav", ImVec2(nav_width, -1), true);
 
         bool move_focus_to_tab = false;
         if (m_current_view_index != m_next_view_index) {
@@ -1918,9 +1917,7 @@ bool MainMenuScene::Draw()
 
         ImGui::PushID(m_current_view_index);
         ImGui::BeginChild("###MainWindowContent", ImVec2(content_width, -1),
-                          true,
-                          ImGuiWindowFlags_AlwaysUseWindowPadding |
-                              ImGuiWindowFlags_NavFlattened);
+                          true);
 
         if (!g_input_mgr.IsNavigatingWithController()) {
             // Close button
