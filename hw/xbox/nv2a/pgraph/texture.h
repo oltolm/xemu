@@ -59,6 +59,14 @@ uint8_t *pgraph_convert_texture_data(const TextureShape s, const uint8_t *data,
                                      unsigned int slice_pitch,
                                      size_t *converted_size);
 
+uint8_t *pgraph_convert_texture_data_with_signs(const TextureShape s, const uint8_t *data,
+                                     const uint8_t *palette_data,
+                                     unsigned int width, unsigned int height,
+                                     unsigned int depth, unsigned int row_pitch,
+                                     unsigned int slice_pitch,
+                                     uint32_t sign_bits,
+                                     size_t *converted_size);
+
 hwaddr pgraph_get_texture_phys_addr(PGRAPHState *pg, int texture_idx);
 hwaddr pgraph_get_texture_palette_phys_addr_length(PGRAPHState *pg, int texture_idx, size_t *length);
 TextureShape pgraph_get_texture_shape(PGRAPHState *pg, int texture_idx);
