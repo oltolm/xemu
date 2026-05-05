@@ -327,7 +327,8 @@ void pgraph_gl_render_surface_to_texture(NV2AState *d, SurfaceBinding *surface,
 
     ColorFormatInfo f = kelvin_color_format_gl_map[texture_shape->color_format];
     uint32_t mask = kelvin_signed_format_mask_gl_map[texture_shape->color_format];
-    if (mask && (filter & mask) == mask)
+    /* Use signed format if ANY channel is signed (not all) */
+    if (mask && (filter & mask) != 0)
         f = kelvin_signed_color_format_gl_map[texture_shape->color_format];
     assert(texture_shape->color_format < ARRAY_SIZE(kelvin_color_format_gl_map));
 
