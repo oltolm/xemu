@@ -431,7 +431,8 @@ static void upload_gl_texture(GLenum gl_target,
 {
     ColorFormatInfo f = kelvin_color_format_gl_map[s.color_format];
     uint32_t mask = kelvin_signed_format_mask_gl_map[s.color_format];
-    if (mask && (filter & mask) == mask)
+    /* Use signed format if ANY channel is signed (not all) */
+    if (mask && (filter & mask) != 0)
         f = kelvin_signed_color_format_gl_map[s.color_format];
 
     nv2a_profile_inc_counter(NV2A_PROF_TEX_UPLOAD);
@@ -456,9 +457,9 @@ static void upload_gl_texture(GLenum gl_target,
             /* Can't handle strides unaligned to pixels */
             assert(s.pitch % f.bytes_per_pixel == 0);
 
-            uint8_t *converted = pgraph_convert_texture_data(
+            uint8_t *converted = pgraph_convert_texture_data_with_signs(
                 s, texture_data, palette_data, adjusted_width, adjusted_height, 1,
-                adjusted_pitch, 0, NULL);
+                adjusted_pitch, 0, filter, NULL);
             glPixelStorei(GL_UNPACK_ROW_LENGTH,
                           converted ? 0 : adjusted_pitch / f.bytes_per_pixel);
             glTexImage2D(GL_TEXTURE_2D, 0, f.gl_internal_format,
@@ -531,9 +532,9 @@ static void upload_gl_texture(GLenum gl_target,
                 uint8_t *unswizzled = (uint8_t*)g_malloc(height * pitch);
                 unswizzle_rect(texture_data, width, height,
                                unswizzled, pitch, f.bytes_per_pixel);
-                uint8_t *converted = pgraph_convert_texture_data(
+                uint8_t *converted = pgraph_convert_texture_data_with_signs(
                     s, unswizzled, palette_data, width, height, 1, pitch, 0,
-                    NULL);
+                    filter, NULL);
                 uint8_t *pixel_data = converted ? converted : unswizzled;
                 unsigned int tex_width = width;
                 unsigned int tex_height = height;
@@ -617,9 +618,9 @@ static void upload_gl_texture(GLenum gl_target,
                 unswizzle_box(texture_data, width, height, depth, unswizzled,
                                row_pitch, slice_pitch, f.bytes_per_pixel);
 
-                uint8_t *converted = pgraph_convert_texture_data(
+                uint8_t *converted = pgraph_convert_texture_data_with_signs(
                     s, unswizzled, palette_data, width, height, depth,
-                    row_pitch, slice_pitch, NULL);
+                    row_pitch, slice_pitch, filter, NULL);
 
                 glTexImage3D(gl_target, level, f.gl_internal_format,
                              width, height, depth, 0,

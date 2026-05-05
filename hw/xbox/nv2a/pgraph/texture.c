@@ -403,3 +403,121 @@ uint8_t *pgraph_convert_texture_data(const TextureShape s, const uint8_t *data,
     }
     return converted_data;
 }
+
+uint8_t *pgraph_convert_texture_data_with_signs(const TextureShape s, const uint8_t *data,
+                                     const uint8_t *palette_data,
+                                     unsigned int width, unsigned int height,
+                                     unsigned int depth, unsigned int row_pitch,
+                                     unsigned int slice_pitch,
+                                     uint32_t sign_bits,
+                                     size_t *converted_size)
+{
+    size_t size = 0;
+    uint8_t *converted_data;
+
+    if (s.color_format == NV097_SET_TEXTURE_FORMAT_COLOR_SZ_R6G5B5) {
+        assert(depth == 1); /* FIXME */
+        size = width * height * 3;
+        converted_data = g_malloc(size);
+        
+        bool r_signed = sign_bits & NV_PGRAPH_TEXFILTER0_RSIGNED;
+        bool g_signed = sign_bits & NV_PGRAPH_TEXFILTER0_GSIGNED;
+        bool b_signed = sign_bits & NV_PGRAPH_TEXFILTER0_BSIGNED;
+        
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                uint16_t rgb655 = *(uint16_t *)(data + y * row_pitch + x * 2);
+                int8_t *pixel = (int8_t *)&converted_data[(y * width + x) * 3];
+                
+                /* Flip bits 9 and 4 (Xbox-specific encoding?) */
+                rgb655 ^= (1 << 9) | (1 << 4);
+                
+                /* Extract components */
+                uint32_t r6 = (rgb655 & 0xFC00) >> 10;  /* 6 bits */
+                uint32_t g5 = (rgb655 & 0x03E0) >> 5;   /* 5 bits */
+                uint32_t b5 = (rgb655 & 0x001F);        /* 5 bits */
+                
+                /* Convert to 8-bit signed based on sign bits */
+                if (r_signed) {
+                    /* Signed 6-bit: -32..31 -> signed 8-bit: -128..127 */
+                    int32_t r_signed_val = (int32_t)(r6 << 26) >> 26; /* Sign extend 6-bit */
+                    pixel[0] = r_signed_val * 0xFF / 0x3F; /* -32..31 -> -128..127 */
+                } else {
+                    /* Unsigned 6-bit: 0..63 -> signed 8-bit: 0..127 (positive SNORM) */
+                    pixel[0] = r6 * 0x7F / 0x3F; /* 0..63 -> 0..127 */
+                }
+                
+                if (g_signed) {
+                    /* Signed 5-bit: -16..15 -> signed 8-bit: -128..127 */
+                    int32_t g_signed_val = (int32_t)(g5 << 27) >> 27; /* Sign extend 5-bit */
+                    pixel[1] = g_signed_val * 0xFF / 0x1F; /* -16..15 -> -128..127 */
+                } else {
+                    /* Unsigned 5-bit: 0..31 -> signed 8-bit: 0..127 (positive SNORM) */
+                    pixel[1] = g5 * 0x7F / 0x1F; /* 0..31 -> 0..127 */
+                }
+                
+                if (b_signed) {
+                    /* Signed 5-bit: -16..15 -> signed 8-bit: -128..127 */
+                    int32_t b_signed_val = (int32_t)(b5 << 27) >> 27; /* Sign extend 5-bit */
+                    pixel[2] = b_signed_val * 0xFF / 0x1F; /* -16..15 -> -128..127 */
+                } else {
+                    /* Unsigned 5-bit: 0..31 -> signed 8-bit: 0..127 (positive SNORM) */
+                    pixel[2] = b5 * 0x7F / 0x1F; /* 0..31 -> 0..127 */
+                }
+            }
+        }
+    } else if (s.color_format == NV097_SET_TEXTURE_FORMAT_COLOR_SZ_G8B8 ||
+               s.color_format == NV097_SET_TEXTURE_FORMAT_COLOR_SZ_R8B8) {
+        assert(depth == 1);
+        size = width * height * 2;
+        converted_data = g_malloc(size);
+        
+        /* For G8B8: channel0=G, channel1=B */
+        /* For R8B8: channel0=R, channel1=B */
+        bool channel0_signed, channel1_signed;
+        
+        if (s.color_format == NV097_SET_TEXTURE_FORMAT_COLOR_SZ_G8B8) {
+            channel0_signed = sign_bits & NV_PGRAPH_TEXFILTER0_GSIGNED;
+            channel1_signed = sign_bits & NV_PGRAPH_TEXFILTER0_BSIGNED;
+        } else { /* R8B8 */
+            channel0_signed = sign_bits & NV_PGRAPH_TEXFILTER0_RSIGNED;
+            channel1_signed = sign_bits & NV_PGRAPH_TEXFILTER0_BSIGNED;
+        }
+        
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                uint16_t packed = *(uint16_t *)(data + y * row_pitch + x * 2);
+                int8_t *pixel = (int8_t *)&converted_data[(y * width + x) * 2];
+                
+                uint8_t channel0 = (packed >> 8) & 0xFF;
+                uint8_t channel1 = packed & 0xFF;
+                
+                if (channel0_signed) {
+                    /* Signed 8-bit: -128..127 -> signed 8-bit: -128..127 (no change) */
+                    pixel[0] = (int8_t)channel0;
+                } else {
+                    /* Unsigned 8-bit: 0..255 -> signed 8-bit: 0..127 (positive SNORM) */
+                    pixel[0] = channel0 / 2; /* 0..255 -> 0..127 */
+                }
+                
+                if (channel1_signed) {
+                    /* Signed 8-bit: -128..127 -> signed 8-bit: -128..127 (no change) */
+                    pixel[1] = (int8_t)channel1;
+                } else {
+                    /* Unsigned 8-bit: 0..255 -> signed 8-bit: 0..127 (positive SNORM) */
+                    pixel[1] = channel1 / 2; /* 0..255 -> 0..127 */
+                }
+            }
+        }
+    } else {
+        /* For other formats, use original function */
+        return pgraph_convert_texture_data(s, data, palette_data, width, height,
+                                           depth, row_pitch, slice_pitch,
+                                           converted_size);
+    }
+
+    if (converted_size) {
+        *converted_size = size;
+    }
+    return converted_data;
+}
