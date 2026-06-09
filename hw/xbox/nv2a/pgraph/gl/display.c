@@ -365,6 +365,21 @@ static void render_display(NV2AState *d, SurfaceBinding *surface)
 
 static void gl_fence(void)
 {
+    static int relaxed_sync = -1;
+    if (relaxed_sync < 0) {
+        const char *env = getenv("XEMU_GL_RELAXED_SYNC");
+        relaxed_sync = env && strcmp(env, "0") != 0;
+    }
+
+    if (relaxed_sync) {
+        /*
+         * Non-blocking mode for profiling regressions: rely on flushes to
+         * submit work and avoid CPU stalls on client wait.
+         */
+        glFlush();
+        return;
+    }
+
     GLsync fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     int result = glClientWaitSync(fence, GL_SYNC_FLUSH_COMMANDS_BIT,
                                          (GLuint64)(5000000000));

@@ -796,6 +796,12 @@ static void report_stats(void)
 }
 #endif
 
+// Time reserved for SDL_GL_SwapWindow to perform a swap. This value is chosen
+// empirically as the best balance between minimizing guest stalls while still
+// hitting the target host refresh rate.
+#define VSYNC_SWAP_GRACE_PERIOD_NS 300000LL
+static int64_t display_vsync_interval = 1000000000LL / 60;
+
 /**
  * Renders the main interface. Usually called from the main thread,
  * but may sometimes be called from another thread.
@@ -860,7 +866,22 @@ static void gl_render_frame(struct xemu_console *scon)
     }
 
     nv2a_release_framebuffer_surface();
+
+    static int64_t last_ui_frame_time_ns = 0;
+#ifdef _WIN32
+    if (g_config.display.window.vsync && last_ui_frame_time_ns) {
+        int64_t next_frame = last_ui_frame_time_ns + display_vsync_interval -
+                             VSYNC_SWAP_GRACE_PERIOD_NS;
+
+        int64_t now = qemu_clock_get_ns(QEMU_CLOCK_REALTIME);
+        if (now < next_frame) {
+            SDL_DelayPrecise(next_frame - now);
+        }
+    }
+#endif
+
     SDL_GL_SwapWindow(scon->real_window);
+    last_ui_frame_time_ns = qemu_clock_get_ns(QEMU_CLOCK_REALTIME);
     assert(glGetError() == GL_NO_ERROR);
 
     qatomic_set(&rendering, false);
@@ -1092,7 +1113,14 @@ static void display_early_init(DisplayOptions *o)
     display_opengl = 1;
 
     SDL_GL_MakeCurrent(m_window, m_context);
+
+    /* Manual sync stays unconditional on Windows only. */
+#ifdef _WIN32
+    SDL_GL_SetSwapInterval(0);
+#else
     SDL_GL_SetSwapInterval(g_config.display.window.vsync ? 1 : 0);
+#endif
+
     xemu_hud_init(m_window, m_context);
 }
 
