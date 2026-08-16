@@ -28,7 +28,12 @@ if not fs.exists(lib)
     message('Downloading dsp56300 @0@ for @1@...'.format(ver, rust_target))
     run_command(find_program('curl'), '-fsSL', url, '-o', src_archive, check: true)
   endif
-  run_command('tar', 'xzf', src_archive, '-C', meson.current_build_dir(), check: true)
+  tar_args = ['-xzf', src_archive, '-C', meson.current_build_dir()]
+  if host_os == 'windows'
+    # GNU tar otherwise treats the drive letter in C:/path as a remote host.
+    tar_args = ['--force-local'] + tar_args
+  endif
+  run_command('tar', tar_args, check: true)
 endif
 
 link_args = []
